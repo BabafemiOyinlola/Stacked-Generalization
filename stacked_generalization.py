@@ -45,8 +45,8 @@ class StackedGeneralization():
             # split into folds then pick
             for i in range(cv):
                 #split into folds
-                print("Start fold: ", start_fold)
-                print("End fold: ", end_fold)
+                # print("Start fold: ", start_fold)
+                # print("End fold: ", end_fold)
                 
                 if i == (cv - 1):
                     test_fold = combined_set_copy[start_fold:]
@@ -67,11 +67,11 @@ class StackedGeneralization():
                 if i == (cv - 1):
                     rowIndex = combined_set.index[start_fold: (start_fold +len(test_fold))]
                     combined_set.loc[rowIndex, 'pred'] = pred
-                    print(rowIndex)
+                    # print(rowIndex)
                 else:
                     rowIndex = combined_set.index[start_fold: end_fold]
                     combined_set.loc[rowIndex, 'pred'] = pred
-                    print(rowIndex)
+                    # print(rowIndex)
             
                 start_fold = end_fold
                 end_fold = end_fold + fold_size
@@ -121,7 +121,7 @@ class StackedGeneralization():
         combined_set_copy = combined_set
 
         all_predictions = []
-        
+        all_preds = np.array([])
         fold_size = int(len(feat_train_set)/cv)
 
         for classifier in self.classifiers:
@@ -131,8 +131,8 @@ class StackedGeneralization():
             # split into folds then pick
             for i in range(cv):
                 #split into folds
-                print("Start fold: ", start_fold)
-                print("End fold: ", end_fold)
+                # print("Start fold: ", start_fold)
+                # print("End fold: ", end_fold)
                 
                 if i == (cv - 1):
                     test_fold = combined_set_copy[start_fold:]
@@ -148,29 +148,39 @@ class StackedGeneralization():
                 X_test_fold = test_fold.drop(columns={'y_train', 'pred'})
                 
                 clf = classifier.fit(X_train_fold, y_train_fold)
-                pred = clf.predict_proba(X_test_fold)
-                
+                pred = [np.array(i).tolist() for i in clf.predict_proba(X_test_fold)]
+                # pred = [i.tolist() for i in clf.predict_proba(X_test_fold)]
+
                 if i == (cv - 1):
                     rowIndex = combined_set.index[start_fold: (start_fold +len(test_fold))]
                     combined_set.loc[rowIndex, 'pred'] = pred
-                    print(rowIndex)
+                    # print(rowIndex)
                 else:
                     rowIndex = combined_set.index[start_fold: end_fold]
                     combined_set.loc[rowIndex, 'pred'] = pred
-                    print(rowIndex)
+                    # print(rowIndex)
             
                 start_fold = end_fold
                 end_fold = end_fold + fold_size
+
                 pred = combined_set['pred']
             all_predictions.append(pred)
-
-        stacked_cv_predictions = None
-        for i in range(len(all_predictions)):
-            if i == len(all_predictions) - 1: break
-            if i == 0:
-                stacked_cv_predictions = np.column_stack((all_predictions[i], all_predictions[i + 1]))
+            if all_preds.size != 0:
+                all_preds = np.column_stack((all_preds, pred))
             else:
-                stacked_cv_predictions = np.column_stack((stacked_cv_predictions, all_predictions[i+1]))
+                all_preds = pred
+
+        flattened = []
+        for i in range(len(all_preds)):
+            item = all_preds[i]
+            flat = []
+            for i in item:
+                flat.extend(i)
+            flattened.append(flat)
+
+        flattened = np.array(flattened)
+        
+        stacked_cv_predictions = flattened #train meta-classifier with stacked probabilities
 
         #2) train classifiers on full training set
         full_predictions= []
@@ -189,9 +199,12 @@ class StackedGeneralization():
 
         return (stacked_cv_predictions, stacked_test_predictions)
 
-    def predict(self, X_test, cv=5):
+    def predict(self, X_test, cv=5, prob=False):
         #train the meta classifer with the results of the predictions from the base classifers using a cross validated method
-        predictions = self.base_classifiers_prob(X_test, cv=cv)
+        if prob:
+            predictions = self.base_classifiers_prob(X_test, cv=cv)
+        else:
+            predictions = self.base_classifiers(X_test, cv=cv)
 
         stacked_cv_predictions = predictions[0]
         stacked_test_predictions = predictions[1]
@@ -227,7 +240,7 @@ classifiers = [knn, dt]
 
 stacked = StackedGeneralization(classifiers, lr)
 stacked.fit(X_train, y_train)
-max_folds = 20
+max_folds = 10
 
 accuracy = []
 
@@ -236,6 +249,17 @@ for i in range(2, max_folds+1):
     acc = stacked.accuracy(pred, y_test)
     accuracy.append(acc)
 
+print("NO PROB")
+print("Accurracy: ", accuracy)
 
+
+accuracy = []
+
+for i in range(2, max_folds+1):
+    pred = stacked.predict(X_test, i, True)
+    acc = stacked.accuracy(pred, y_test)
+    accuracy.append(acc)
+
+print("PROB")
 print("Accurracy: ", accuracy)
 print("\nDone")
