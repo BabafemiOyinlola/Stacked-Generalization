@@ -13,6 +13,7 @@ class StackedGeneralization():
     def __init__(self, classifiers, meta_clf):
         self.classifiers = classifiers
         self.meta_clf = meta_clf
+        self.clf_name = "STG"
     
     def fit(self, X_train, y_train):
         self.X_train = X_train
@@ -61,7 +62,7 @@ class StackedGeneralization():
     
                 X_test_fold = test_fold.drop(columns={'y_train', 'pred'})
                 
-                clf = classifier.fit(X_train_fold, y_train_fold)
+                clf = classifier().fit(X_train_fold, y_train_fold)
                 pred = clf.predict(X_test_fold)
                 
                 if i == (cv - 1):
@@ -76,7 +77,8 @@ class StackedGeneralization():
                 start_fold = end_fold
                 end_fold = end_fold + fold_size
                 pred = combined_set['pred']
-            all_predictions.append(pred)
+                # pred = [[i] for i in pred]
+            all_predictions.append(np.array(pred))
 
         stacked_cv_predictions = None
         for i in range(len(all_predictions)):
@@ -84,12 +86,12 @@ class StackedGeneralization():
             if i == 0:
                 stacked_cv_predictions = np.column_stack((all_predictions[i], all_predictions[i + 1]))
             else:
-                stacked_cv_predictions = np.column_stack((stacked_cv_predictions, all_predictions[i+1]))
+                stacked_cv_predictions = np.column_stack((stacked_cv_predictions, np.array(all_predictions[i+1])))
 
         #2) train classifiers on full training set
         full_predictions= []
         for classifier in self.classifiers:
-            clf = clf.fit(self.X_train, self.y_train) #classifiers trained on full training set
+            clf = classifier().fit(self.X_train, self.y_train) #classifiers trained on full training set
             pred = clf.predict(X_test) #predict labels of the test set
             full_predictions.append(pred)
 
@@ -147,7 +149,7 @@ class StackedGeneralization():
     
                 X_test_fold = test_fold.drop(columns={'y_train', 'pred'})
                 
-                clf = classifier.fit(X_train_fold, y_train_fold)
+                clf = classifier().fit(X_train_fold, y_train_fold)
                 pred = [np.array(i).tolist() for i in clf.predict_proba(X_test_fold)]
                 # pred = [i.tolist() for i in clf.predict_proba(X_test_fold)]
 
@@ -185,7 +187,7 @@ class StackedGeneralization():
         #2) train classifiers on full training set
         full_predictions= []
         for classifier in self.classifiers:
-            clf = clf.fit(self.X_train, self.y_train) #classifiers trained on full training set
+            clf = classifier().fit(self.X_train, self.y_train) #classifiers trained on full training set
             pred = clf.predict_proba(X_test) #predict labels of the test set
             full_predictions.append(pred)
 
@@ -198,18 +200,18 @@ class StackedGeneralization():
                 stacked_test_predictions = np.column_stack((stacked_test_predictions, full_predictions[i+1]))
 
         return (stacked_cv_predictions, stacked_test_predictions)
-
-    def predict(self, X_test, cv=5, prob=False):
+    
+    def predict(self, X_test, cv_=5, prob=False):
         #train the meta classifer with the results of the predictions from the base classifers using a cross validated method
         if prob:
-            predictions = self.base_classifiers_prob(X_test, cv=cv)
+            predictions = self.base_classifiers_prob(X_test, cv=cv_)
         else:
-            predictions = self.base_classifiers(X_test, cv=cv)
+            predictions = self.base_classifiers(X_test, cv=cv_)
 
         stacked_cv_predictions = predictions[0]
         stacked_test_predictions = predictions[1]
 
-        clf = self.meta_clf
+        clf = self.meta_clf()
         clf.fit(stacked_cv_predictions, self.y_train)
         final_pred = clf.predict(stacked_test_predictions)
 
@@ -226,40 +228,3 @@ class StackedGeneralization():
         acc = (match / len(y_test)) * 100
         acc = round(acc, 2)
         return acc
-
-
-dt = load_breast_cancer()
-X = dt.data
-y = dt.target
-
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
-
-knn, dt = KNeighborsClassifier(), DecisionTreeClassifier()
-lr = LogisticRegression()
-classifiers = [knn, dt]
-
-stacked = StackedGeneralization(classifiers, lr)
-stacked.fit(X_train, y_train)
-max_folds = 10
-
-accuracy = []
-
-for i in range(2, max_folds+1):
-    pred = stacked.predict(X_test, i)
-    acc = stacked.accuracy(pred, y_test)
-    accuracy.append(acc)
-
-print("NO PROB")
-print("Accurracy: ", accuracy)
-
-
-accuracy = []
-
-for i in range(2, max_folds+1):
-    pred = stacked.predict(X_test, i, True)
-    acc = stacked.accuracy(pred, y_test)
-    accuracy.append(acc)
-
-print("PROB")
-print("Accurracy: ", accuracy)
-print("\nDone")
