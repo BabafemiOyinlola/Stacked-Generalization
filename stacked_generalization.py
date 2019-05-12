@@ -117,9 +117,12 @@ class StackedGeneralization():
         stack = np.column_stack((feat_train_set, lbl_trian_set))
         stack = np.column_stack((stack, pred))
 
+        #TO DO: SHUFFLE DATA
         combined_set = pd.DataFrame(pd.DataFrame(stack))
         combined_set=combined_set.rename(columns = {len(combined_set.columns) - 1:'pred'})
         combined_set=combined_set.rename(columns = {len(combined_set.columns) - 2:'y_train'})
+        # combined_set = combined_set.sample(frac=1).reset_index(drop=True)
+
         combined_set_copy = combined_set
 
         all_predictions = []
@@ -131,11 +134,7 @@ class StackedGeneralization():
             end_fold = fold_size
 
             # split into folds then pick
-            for i in range(cv):
-                #split into folds
-                # print("Start fold: ", start_fold)
-                # print("End fold: ", end_fold)
-                
+            for i in range(cv):               
                 if i == (cv - 1):
                     test_fold = combined_set_copy[start_fold:]
                     train_fold = combined_set_copy.drop(combined_set_copy.index[start_fold: ])
@@ -172,16 +171,22 @@ class StackedGeneralization():
             else:
                 all_preds = pred
 
-        flattened = []
-        for i in range(len(all_preds)):
-            item = all_preds[i]
-            flat = []
-            for i in item:
-                flat.extend(i)
-            flattened.append(flat)
+        # flattened = None
+        # for i in range(len(all_preds)):
+        #     item = all_preds[i]
+        #     flat = []
+        #     for i in item:
+        #         flat.extend(i)
+        #     # flattened.append(np.array(flat).reshape(len(flat),-1))
+        #     flat = np.array(flat).reshape(-1, len(flat))
+        #     if flattened is None:
+        #         flattened = flat
+        #     else:
+        #         flattened = np.append(flattened, flat, axis = 0)
+        #     # flattened.append(np.array(flat).reshape(-1, len(flat)))
 
-        flattened = np.array(flattened)
-        
+        # flattened = np.array(flattened)
+        flattened = np.mean(np.array(all_predictions), axis=0)
         stacked_cv_predictions = flattened #train meta-classifier with stacked probabilities
 
         #2) train classifiers on full training set
@@ -191,13 +196,14 @@ class StackedGeneralization():
             pred = clf.predict_proba(X_test) #predict labels of the test set
             full_predictions.append(pred)
 
-        stacked_test_predictions = None 
-        for i in range(len(full_predictions)):
-            if i == len(full_predictions) - 1: break
-            if i == 0:
-                stacked_test_predictions = np.column_stack((full_predictions[i], full_predictions[i + 1]))
-            else:
-                stacked_test_predictions = np.column_stack((stacked_test_predictions, full_predictions[i+1]))
+        # stacked_test_predictions = None 
+        stacked_test_predictions = np.mean(full_predictions, axis=0)
+        # for i in range(len(full_predictions)):
+        #     if i == len(full_predictions) - 1: break
+        #     if i == 0:
+        #         stacked_test_predictions = np.column_stack((full_predictions[i], full_predictions[i + 1]))
+        #     else:
+        #         stacked_test_predictions = np.column_stack((stacked_test_predictions, full_predictions[i+1]))
 
         return (stacked_cv_predictions, stacked_test_predictions)
     
@@ -212,7 +218,7 @@ class StackedGeneralization():
         stacked_test_predictions = predictions[1]
 
         clf = self.meta_clf()
-        clf.fit(stacked_cv_predictions, self.y_train)
+        clf.fit(stacked_cv_predictions, np.array(self.y_train).reshape(self.y_train.shape[0],-1))
         final_pred = clf.predict(stacked_test_predictions)
 
         return final_pred
