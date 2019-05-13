@@ -14,6 +14,8 @@ def cross_validate_clfs(data, classifiers_cv, classifiers_cv_names, meta_clf, fo
     y = data[:, -1]
     if encode:
         y = LabelEncoder().fit_transform(y)
+    y = y.reshape(data.shape[0],)
+
 
     X = data[:, 0:data.shape[1]-1]
     X = StandardScaler().fit_transform(X)
@@ -64,7 +66,7 @@ def add_noise(data, filepath=None, encode_label=False):
             col_max = np.max(data[:, i])
             col_min = np.min(data[:, i])
             
-            sigma = (col_max - col_min)
+            sigma = (col_max - col_min)*10
             
             noise = np.random.normal(mu, sigma, shape).reshape(data.shape[0],)
             temp = data[:, i]
@@ -96,7 +98,10 @@ def cross_validate_clfs_noise(noiseless_data, classifiers_cv, classifiers_cv_nam
     test_data = np.array(test_data)
 
     y = data_with_noise[:, -1]
+    y = y.reshape(data_with_noise.shape[0],)
+
     y_test = test_data[:, -1]
+    y_test = y_test.reshape(test_data.shape[0],)
 
     if encode:
         y = LabelEncoder().fit_transform(y)

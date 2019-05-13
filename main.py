@@ -51,9 +51,9 @@ if __name__ == "__main__":
     
     print("\nCROSS VALIDATION NOISE \n")
     for i in range(20, 80, 10):
+        print("\n")
         print("Noise level: ", i)
         cv_results_noise = cross_validate_clfs_noise(data, classifiers_cv, classifiers_cv_names, meta_clf=SVC, level=i, encode=False)
-        print("\n")
         for clf, acc in cv_results_noise:
             print(clf + " : " + str(round(acc, 3)) + " \t\t\tError: " + str(round(1 - acc, 3)))
 
