@@ -3,7 +3,7 @@ import random
 import numpy as np
 import pandas as pd
 
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, cohen_kappa_score
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import StratifiedKFold, KFold
@@ -142,3 +142,94 @@ def cross_validate_clfs_noise(noiseless_data, classifiers_cv, classifiers_cv_nam
 
     combine = zip(classifiers_cv_names, clfs_accuracies)
     return combine
+
+def cross_validate_kappa(data, classifiers_cv, classifiers_cv_names, meta_clf, folds=10, encode=False):
+    data = np.array(data)
+    y = data[:, -1]
+    if encode:
+        y = LabelEncoder().fit_transform(y)
+    y = y.reshape(data.shape[0],)
+
+
+    X = data[:, 0:data.shape[1]-1]
+    X = StandardScaler().fit_transform(X)
+
+    kappa_scores = []
+
+    skf = StratifiedKFold(n_splits=folds, shuffle=True)
+    for i in range(len(classifiers_cv)):
+        kappa = []
+        for train_index, test_index in skf.split(X, y):
+            X_train, X_test = X[train_index], X[test_index]
+            y_train, y_test = y[train_index], y[test_index]
+            score = 0
+            pred = None
+            clf = None
+            if i == len(classifiers_cv) - 1:
+                if hasattr(classifiers_cv[i](classifiers_cv[0:i-1], meta_clf), 'clf_name'):
+                    clf = classifiers_cv[i](classifiers_cv[0:i-1], meta_clf)
+                else:
+                    clf = classifiers_cv[i]()
+                clf.fit(X_train, y_train)
+                pred = clf.predict(X_test, prob=True)  
+            else:
+                if hasattr(classifiers_cv[i](classifiers_cv[0:i], meta_clf), 'clf_name'):
+                    clf = classifiers_cv[i](classifiers_cv[0:i], meta_clf)
+                else:
+                    clf = classifiers_cv[i]()
+                clf.fit(X_train, y_train)
+                pred = clf.predict(X_test)
+            score = cohen_kappa_score(y_test, pred)
+            kappa.append(score)
+        kappa_scores.append(np.mean(kappa))
+
+    combine = zip(classifiers_cv_names, kappa_scores)
+    return combine
+
+def q_statistic(clf1_pred, clf2_pred, y_true):
+    #create a 2x2 contigency table from the predictions obtained from both classifiers
+    #if the predicted label obtained is same as the true label, label == 1 otherwise, 0
+
+    clf1_label = []
+    for i in range(len(clf1_pred)):
+        if clf1_pred[i] == y_true[i]:
+            temp = 1
+        else:
+            temp = 0
+        clf1_label.append(temp) 
+
+    clf2_label = []
+    for i in range(len(clf2_pred)):
+        if clf2_pred[i] == y_true[i]:
+            temp = 1
+        else:
+            temp = 0        
+        clf2_label.append(temp) 
+
+    contigency_table = np.empty((2,2))
+    correct_correct = 0
+    incorrect_correct = 0
+    correct_incorrect = 0
+    incorrect_incorrect = 0
+
+    for i in range(len(clf1_label)):
+        if clf1_label[i] == 1 and clf2_label[i] == 1:
+            correct_correct += 1
+        elif clf1_label[i] == 0 and clf2_label[i] == 1:
+            incorrect_correct += 1
+        elif clf1_label[i] == 1 and clf2_label[i] == 0:
+            correct_incorrect += 1
+        elif clf1_label[i] == 0 and clf2_label[i] == 0:
+            incorrect_incorrect += 1
+
+    contigency_table[0, 0] = correct_correct
+    contigency_table[1, 0] = incorrect_correct
+    contigency_table[0, 1] = correct_incorrect
+    contigency_table[1, 1] = incorrect_incorrect
+
+    num = (contigency_table[0, 0] * contigency_table[1, 1]) - (contigency_table[1, 0] * contigency_table[0, 1])
+    den = (contigency_table[0, 0] * contigency_table[1, 1]) + (contigency_table[1, 0] * contigency_table[0, 1])
+
+    Q = num / den
+
+    return round(Q, 3)
