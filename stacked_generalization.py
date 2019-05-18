@@ -139,11 +139,15 @@ class StackedGeneralization():
                 
                 X_train_fold = train_fold.drop(columns={'y_train', 'pred'})
                 y_train_fold = train_fold['y_train']
-                y_train_fold = list(y_train_fold)
-    
+                y_train_fold = list(y_train_fold)   
                 X_test_fold = test_fold.drop(columns={'y_train', 'pred'})
+
+                # clf = None
+                if hasattr(classifier(), 'probability'):
+                    clf = classifier(probability=True).fit(X_train_fold, y_train_fold)
+                else:
+                    clf = classifier().fit(X_train_fold, y_train_fold)
                 
-                clf = classifier().fit(X_train_fold, y_train_fold)
                 pred = [np.array(i).tolist() for i in clf.predict_proba(X_test_fold)]
 
                 if i == (cv - 1):
@@ -163,18 +167,47 @@ class StackedGeneralization():
             else:
                 all_preds = pred
 
-        flattened = np.mean(np.array(all_predictions), axis=0)
+        flattened = None
+        for i in range(len(all_preds)):
+            item = all_preds[i]
+            flat = []
+            for i in item:
+                flat.extend(i)
+            # flattened.append(np.array(flat).reshape(len(flat),-1))
+            flat = np.array(flat).reshape(-1, len(flat))
+            if flattened is None:
+                flattened = flat
+            else:
+                flattened = np.append(flattened, flat, axis = 0)
+            # flattened.append(np.array(flat).reshape(-1, len(flat)))
+
+        flattened = np.array(flattened)
+        # flattened = np.mean(np.array(all_predictions), axis=0)
         stacked_cv_predictions = flattened #output to used in training meta-classifier
 
         #2) train classifiers on full training set
         full_predictions= []
+        clf = None
         for classifier in self.classifiers:
-            clf = classifier().fit(self.X_train, self.y_train) #classifiers trained newly on full training set
+            # clf = classifier().fit(self.X_train, self.y_train) #classifiers trained newly on full training set
+            if hasattr(classifier(), 'probability'):
+                clf = classifier(probability=True).fit(self.X_train, self.y_train)
+            else:
+                clf = classifier().fit(self.X_train, self.y_train)
             pred = clf.predict_proba(X_test) #predict labels of the test set
             full_predictions.append(pred)
 
-        stacked_test_predictions = np.mean(full_predictions, axis=0) #new test set used to test classifier
+        # stacked_test_predictions = np.mean(full_predictions, axis=0) #new test set used to test classifier
         
+        stacked_test_predictions = None 
+        for i in range(len(full_predictions)):
+            if i == len(full_predictions) - 1: break
+            if i == 0:
+                stacked_test_predictions = np.column_stack((full_predictions[i], full_predictions[i + 1]))
+            else:
+                stacked_test_predictions = np.column_stack((stacked_test_predictions, full_predictions[i+1]))
+
+
         return (stacked_cv_predictions, stacked_test_predictions)
     
     def predict(self, X_test, cv_=5, prob=False):

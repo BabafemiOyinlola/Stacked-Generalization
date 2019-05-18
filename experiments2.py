@@ -9,21 +9,19 @@ from sklearn.model_selection import StratifiedKFold, KFold
 from sklearn.metrics import accuracy_score, cohen_kappa_score
 
 # 1) K-FOLD CROSS VALIDATION
-def cross_validate_clfs(data, classifiers_cv, classifiers_cv_names, meta_clf, folds=10, encode=False):
+def cross_validate_clfs(data, classifiers_cv, classifiers_cv_names, meta_clf, folds=5, encode=False):
     std_scaler = StandardScaler()
     lbl_encoder = LabelEncoder()
 
     data = np.array(data)
     y = data[:, -1]
-    # if encode:
-    #     y = LabelEncoder().fit_transform(y)
-    # y = y.reshape(data.shape[0],)
 
     X = data[:, 0:data.shape[1]-1]
-    # X = StandardScaler().fit_transform(X)
 
     clfs_accuracies = []
-
+    
+    clfs = len(classifiers_cv) - 2
+    
     skf = StratifiedKFold(n_splits=folds, shuffle=True)
     for i in range(len(classifiers_cv)):
         acc = []
@@ -40,14 +38,14 @@ def cross_validate_clfs(data, classifiers_cv, classifiers_cv_names, meta_clf, fo
             clf = None
             if i == len(classifiers_cv) - 1:
                 if hasattr(classifiers_cv[i], 'clf_name'):
-                    classifiers_cv[i].classifiers = classifiers_cv[0:i-1]
+                    classifiers_cv[i].classifiers = classifiers_cv[0:clfs]
                     classifiers_cv[i].meta_clf = meta_clf
                 clf = classifiers_cv[i]
                 clf.fit(X_train, y_train)
                 pred = clf.predict(X_test, prob=True)
             else:
                 if hasattr(classifiers_cv[i], 'clf_name'):
-                    classifiers_cv[i].classifiers = classifiers_cv[0:i-1]
+                    classifiers_cv[i].classifiers = classifiers_cv[0:clfs]
                     classifiers_cv[i].meta_clf = meta_clf
                 clf = classifiers_cv[i]
                 clf.fit(X_train, y_train)

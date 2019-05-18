@@ -3,22 +3,24 @@ import random
 import numpy as np
 import pandas as pd
 
-from sklearn.metrics import accuracy_score, cohen_kappa_score
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import StratifiedKFold, KFold
+from sklearn.metrics import accuracy_score, cohen_kappa_score
 
 # 1) K-FOLD CROSS VALIDATION
 def cross_validate_clfs(data, classifiers_cv, classifiers_cv_names, meta_clf, folds=10, encode=False):
+    std_scaler = StandardScaler()
+    lbl_encoder = LabelEncoder()
+
     data = np.array(data)
     y = data[:, -1]
-    if encode:
-        y = LabelEncoder().fit_transform(y)
-    y = y.reshape(data.shape[0],)
-
+    # if encode:
+    #     y = LabelEncoder().fit_transform(y)
+    # y = y.reshape(data.shape[0],)
 
     X = data[:, 0:data.shape[1]-1]
-    X = StandardScaler().fit_transform(X)
+    # X = StandardScaler().fit_transform(X)
 
     clfs_accuracies = []
 
@@ -27,7 +29,12 @@ def cross_validate_clfs(data, classifiers_cv, classifiers_cv_names, meta_clf, fo
         acc = []
         for train_index, test_index in skf.split(X, y):
             X_train, X_test = X[train_index], X[test_index]
+            X_train = std_scaler.fit_transform(X_train)
+            X_test = std_scaler.transform(X_test)
             y_train, y_test = y[train_index], y[test_index]
+            if encode:
+                y_train = lbl_encoder.fit_transform(y_train)
+                y_test = lbl_encoder.transform(y_test)
             score = 0
             pred = None
             clf = None
@@ -39,10 +46,14 @@ def cross_validate_clfs(data, classifiers_cv, classifiers_cv_names, meta_clf, fo
                 clf.fit(X_train, y_train)
                 pred = clf.predict(X_test, prob=True)  
             else:
-                if hasattr(classifiers_cv[i](classifiers_cv[0:i], meta_clf), 'clf_name'):
-                    clf = classifiers_cv[i](classifiers_cv[0:i], meta_clf)
-                else:
+                try:
+                    if hasattr(classifiers_cv[i](classifiers_cv[0:i], meta_clf), 'clf_name'):
+                        clf = classifiers_cv[i](classifiers_cv[0:i], meta_clf)
+                    else:
+                        clf = classifiers_cv[i]()
+                except:
                     clf = classifiers_cv[i]()
+                    pass
                 clf.fit(X_train, y_train)
                 pred = clf.predict(X_test)
             score = accuracy_score(y_test, pred)
@@ -66,7 +77,7 @@ def add_noise(data, filepath=None, encode_label=False):
             col_max = np.max(data[:, i])
             col_min = np.min(data[:, i])
             
-            sigma = (col_max - col_min)*10
+            sigma = (col_max - col_min)/0.5
             
             noise = np.random.normal(mu, sigma, shape).reshape(data.shape[0],)
             temp = data[:, i]
@@ -75,6 +86,9 @@ def add_noise(data, filepath=None, encode_label=False):
     return data_copy    
 
 def cross_validate_clfs_noise(noiseless_data, classifiers_cv, classifiers_cv_names, meta_clf, folds=5, level=20, encode=False):
+    std_scaler = StandardScaler()
+    lbl_encoder  = LabelEncoder()
+
     noiseless_data = pd.DataFrame(noiseless_data)
 
     noisy_data = add_noise(noiseless_data)
@@ -104,14 +118,14 @@ def cross_validate_clfs_noise(noiseless_data, classifiers_cv, classifiers_cv_nam
     y_test = y_test.reshape(test_data.shape[0],)
 
     if encode:
-        y = LabelEncoder().fit_transform(y)
-        y_test = LabelEncoder().fit_transform(y_test)
+        y = lbl_encoder.fit_transform(y)
+        y_test = lbl_encoder.transform(y_test)
 
     X = data_with_noise[:, 0:data_with_noise.shape[1]-1]
-    X = StandardScaler().fit_transform(X)
+    X = std_scaler.fit_transform(X)
 
     X_test = test_data[:, 0:test_data.shape[1]-1]
-    X_test = StandardScaler().fit_transform(X_test)
+    X_test = std_scaler.transform(X_test)
 
     skf = StratifiedKFold(n_splits=folds, shuffle=True)
     for i in range(len(classifiers_cv)):
@@ -130,10 +144,14 @@ def cross_validate_clfs_noise(noiseless_data, classifiers_cv, classifiers_cv_nam
                 clf.fit(X_train, y_train)
                 pred = clf.predict(X_test, prob=True)  
             else:
-                if hasattr(classifiers_cv[i](classifiers_cv[0:i], meta_clf), 'clf_name'):
-                    clf = classifiers_cv[i](classifiers_cv[0:i], meta_clf)
-                else:
+                try:
+                    if hasattr(classifiers_cv[i](classifiers_cv[0:i], meta_clf), 'clf_name'):
+                        clf = classifiers_cv[i](classifiers_cv[0:i], meta_clf)
+                    else:
+                        clf = classifiers_cv[i]()
+                except:
                     clf = classifiers_cv[i]()
+                    pass
                 clf.fit(X_train, y_train)
                 pred = clf.predict(X_test)
             score = accuracy_score(y_test, pred)
@@ -186,10 +204,13 @@ def cross_validate_kappa(data, classifiers_cv, classifiers_cv_names, meta_clf, f
     combine = zip(classifiers_cv_names, kappa_scores)
     return combine
 
+# 3) DIVERSITY
 def q_statistic(clf1_pred, clf2_pred, y_true):
-    #create a 2x2 contigency table from the predictions obtained from both classifiers
-    #if the predicted label obtained is same as the true label, label == 1 otherwise, 0
-
+    '''
+    Q is a measure of diversity
+    create a 2x2 contigency table from the predictions obtained from both classifiers
+    if the predicted label obtained is same as the true label, label == 1 otherwise, 0
+    '''
     clf1_label = []
     for i in range(len(clf1_pred)):
         if clf1_pred[i] == y_true[i]:
