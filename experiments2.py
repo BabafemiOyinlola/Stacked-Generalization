@@ -195,7 +195,7 @@ def cross_validate_kappa(data, classifiers_cv, classifiers_cv_names, meta_clf, f
     return combine
 
 # 3) DIVERSITY
-def q_statistic(clf1_pred, clf2_pred, y_true):
+def q_statistic_and_correlation(clf1_pred, clf2_pred, y_true):
     '''
     Q is a measure of diversity
     create a 2x2 contigency table from the predictions obtained from both classifiers
@@ -239,8 +239,13 @@ def q_statistic(clf1_pred, clf2_pred, y_true):
     contigency_table[1, 1] = incorrect_incorrect
 
     num = (contigency_table[0, 0] * contigency_table[1, 1]) - (contigency_table[1, 0] * contigency_table[0, 1])
-    den = (contigency_table[0, 0] * contigency_table[1, 1]) + (contigency_table[1, 0] * contigency_table[0, 1])
+    q_den = (contigency_table[0, 0] * contigency_table[1, 1]) + (contigency_table[1, 0] * contigency_table[0, 1]) #q denominator
+    
+    ab_cd = (contigency_table[0, 0] + contigency_table[1, 0]) * (contigency_table[0, 1] + contigency_table[1, 1])
+    ac_bd = (contigency_table[0, 0] + contigency_table[0, 1]) * (contigency_table[1, 0] + contigency_table[1, 1])
+    
+    Q = round(num / q_den, 3)
 
-    Q = num / den
+    correlation = round(num / (math.sqrt(ab_cd * ac_bd)), 3)
 
-    return round(Q, 3)
+    return Q, correlation

@@ -3,114 +3,84 @@ import random
 import numpy as np
 import pandas as pd
 
-from sklearn.svm import SVC
 from sklearn.model_selection import cross_val_predict
+
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
-from sklearn.naive_bayes import GaussianNB
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import AdaBoostClassifier, GradientBoostingClassifier
-from sklearn.ensemble import BaggingClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
 
-from experiments import cross_validate_clfs, cross_validate_clfs_noise, cross_validate_kappa, q_statistic
+from sklearn.metrics import accuracy_score
+
 from stacked_generalization import StackedGeneralization
+from experiments import cross_validate_clfs, cross_validate_clfs_noise, cross_validate_kappa, \
+                        q_statistic_and_correlation, classifer_diversity
 
-def split_data(filepath, lbl_pos=-1):
-    data = pd.read_csv(filepath, header=None)
-    data = np.array(data)
-    X, y = None, None
-    if lbl_pos == -1:
-        y = data[:, -1]
-        X = data[:, 0:data.shape[1]-1]
-    elif lbl_pos == 0:
-        y = data[:, 0]
-        X = data[:, 1:data.shape[1]]
-    X = scaler.fit_transform(X)
-
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
-
-    return (X_train, X_test, y_train, y_test) 
 
 if __name__ == "__main__":
-    knn, dt, svm, lr, nb  = KNeighborsClassifier(), DecisionTreeClassifier(), SVC(), LogisticRegression(), GaussianNB()
-    classifiers = [KNeighborsClassifier, LogisticRegression, DecisionTreeClassifier]
+    #base classifiers - level 0
+    knn = KNeighborsClassifier(n_neighbors=1)
+    dt = DecisionTreeClassifier(max_depth=1)
+    mlp = MLPClassifier(hidden_layer_sizes=(10, 1))
 
-    print(str(SVC()))
-    # data = pd.read_csv('data/waveform/waveform.txt', header=None)
-    # data = pd.read_csv('data/glass/glass.csv', header=None)
+    #meta classifier - level 1
+    lr = LogisticRegression()
+    
+    stk = StackedGeneralization()
+    stk_p = StackedGeneralization()
+
+    classifiers_cv = [mlp, dt, knn, stk, stk_p]
+    classifiers_cv_names = ["MLP", "DT", "KNN", "STK", "STK_PR"]
+
+
     # data = pd.read_csv('data/hepatitis/hepatitis.csv', header=None)
-
-    #non numeric label
-    # data = pd.read_csv('data/avila/avila.csv', header=None)
     
     #binary 
     # data = pd.read_csv('data/sonar/sonar.csv', header=None)
-    # data = pd.read_csv('data/ionosphere/ionosphere.csv', header=None)
-    data = pd.read_csv('data/breast_cancer/breast_cancer.csv', header=None)
+    data = pd.read_csv('data/ionosphere/ionosphere.csv', header=None)
+    # data = pd.read_csv('data/breast_cancer/breast_cancer.csv', header=None)
     # data = pd.read_csv('data/iris/iris.csv', header=None)
+    # data = pd.read_csv('data/diabeties/diabetes.csv', header=None)
     
 
     data = data.sample(frac=1).reset_index(drop=True) #shuffle
 
-    # classifiers_cv = [AdaBoostClassifier, LogisticRegression, GaussianNB, DecisionTreeClassifier, StackedGeneralization, StackedGeneralization]   
-    # classifiers_cv_names = ["AdaB", "LG", "gnb", "dt", "stacked", "stacked_prob"]
 
-    classifiers_cv = [AdaBoostClassifier, GaussianNB, BaggingClassifier, StackedGeneralization, StackedGeneralization]   
-    classifiers_cv_names = ["AdaB", "Gnb", "bagging", "stacked", "stacked_prob"]
-
-    cv_results = cross_validate_clfs(data, classifiers_cv, classifiers_cv_names, meta_clf=LogisticRegression, encode=True)
-    # print("\nCROSS VALIDATION NOISELESS \n")
+    # cv_results = cross_validate_clfs(data, classifiers_cv, classifiers_cv_names, meta_clf=LogisticRegression(), encode=True)
+    # print("\nCROSS VALIDATION - NOISELESS DATA \n")
     # for clf, acc in cv_results:
     #     print(clf + " : " + str(round(acc, 3)) + " \t\t\tError: " + str(round(1 - acc, 3)))
     
-    # print("\nCROSS VALIDATION NOISE \n")
+
+    # print("\nCROSS VALIDATION - NOISY DATA \n")
     # for i in range(5, 30, 5):
     #     print("\n")
     #     print("Noise level: ", i)
-    #     cv_results_noise = cross_validate_clfs_noise(data, classifiers_cv, classifiers_cv_names, meta_clf=LogisticRegression, level=i, encode=True)
+    #     cv_results_noise = cross_validate_clfs_noise(data, classifiers_cv, classifiers_cv_names, meta_clf=LogisticRegression(), level=i, encode=False)
     #     for clf, acc in cv_results_noise:
     #         print(clf + " : " + str(round(acc, 3)) + " \t\t\tError: " + str(round(1 - acc, 3)))
 
-    # kappa_scores = cross_validate_clfs(data, classifiers_cv, classifiers_cv_names, meta_clf=SVC, encode=True)
-    # print("\nKAPPA SCORES\n")
-    # for clf, k in kappa_scores:
-    #     print(clf + " : " + str(round(k, 3)))
+    classifer_diversity(data, mlp, dt, knn, encode=True)
+
+    #various combinations of base classifers 
+    cmb1, cmb1_names = [mlp, dt, stk, stk_p], ["MLP", "DT", "STK", "STK_PR"]
+    cmb2, cmb2_names = [dt, knn, stk, stk_p], ["DT", "KNN", "STK", "STK_PR"]
+    cmb3, cmb3_names = [mlp, knn, stk, stk_p], ["MLP", "KNN", "STK", "STK_PR"]
 
 
-    # from sklearn.preprocessing import StandardScaler
-    # from sklearn.preprocessing import LabelEncoder
+    cv_results = cross_validate_clfs(data, cmb1, cmb1_names, meta_clf=LogisticRegression(), encode=True)
+    print("\nCROSS VALIDATION - DIFFERENT CLASSIFIER COMBINATION 1: MLP & DT \n")
+    for clf, acc in cv_results:
+        print(clf + " : " + str(round(acc, 3)) + " \t\t\tError: " + str(round(1 - acc, 3)))
 
-    # data = np.array(data)
-    # y = data[:, -1]
-    # # y = LabelEncoder().fit_transform(y)
+    cv_results = cross_validate_clfs(data, cmb2, cmb2_names, meta_clf=LogisticRegression(), encode=True)
+    print("\nCROSS VALIDATION - DIFFERENT CLASSIFIER COMBINATION  2: DT & KNN \n")
+    for clf, acc in cv_results:
+        print(clf + " : " + str(round(acc, 3)) + " \t\t\tError: " + str(round(1 - acc, 3)))
 
-    # X = data[:, 0:data.shape[1]-1]
-    # X = StandardScaler().fit_transform(X)
-
-    # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
-
-    # knn.fit(X_train, y_train)
-    # knn_pred = knn.predict(X_test)
-
-    # lr.fit(X_train, y_train)
-    # lr_pred = lr.predict(X_test)
-
-    # dt.fit(X_train, y_train)
-    # dt_pred = dt.predict(X_test)
-
-    # knn_lr_Q = q_statistic(knn_pred, lr_pred, y_test)
-    # knn_dt_Q = q_statistic(knn_pred, dt_pred, y_test)
-    # lr_dt_Q = q_statistic(lr_pred, dt_pred, y_test)
-
-    # print("\nknn_lr_Q: ", knn_lr_Q)
-    # print("knn_dt_Q: ", knn_dt_Q)
-    # print("lr_dt_Q: ", lr_dt_Q)
-
-    # overall = round(1 * (knn_lr_Q + lr_dt_Q))
-
-    # print("Q: ", overall)
-
+    cv_results = cross_validate_clfs(data, cmb3, cmb3_names, meta_clf=LogisticRegression(), encode=True)
+    print("\nCROSS VALIDATION - DIFFERENT CLASSIFIER COMBINATION 3: MLP & KNN \n")
+    for clf, acc in cv_results:
+        print(clf + " : " + str(round(acc, 3)) + " \t\t\tError: " + str(round(1 - acc, 3)))
 
     print("\nDone")

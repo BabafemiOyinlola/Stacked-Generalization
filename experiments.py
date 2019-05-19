@@ -5,25 +5,24 @@ import pandas as pd
 
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
 from sklearn.model_selection import StratifiedKFold, KFold
 from sklearn.metrics import accuracy_score, cohen_kappa_score
 
 # 1) K-FOLD CROSS VALIDATION
-def cross_validate_clfs(data, classifiers_cv, classifiers_cv_names, meta_clf, folds=10, encode=False):
+def cross_validate_clfs(data, classifiers_cv, classifiers_cv_names, meta_clf, folds=5, encode=False):
     std_scaler = StandardScaler()
     lbl_encoder = LabelEncoder()
 
     data = np.array(data)
     y = data[:, -1]
-    # if encode:
-    #     y = LabelEncoder().fit_transform(y)
-    # y = y.reshape(data.shape[0],)
 
     X = data[:, 0:data.shape[1]-1]
-    # X = StandardScaler().fit_transform(X)
 
     clfs_accuracies = []
-
+    
+    clfs = len(classifiers_cv) - 2
+    
     skf = StratifiedKFold(n_splits=folds, shuffle=True)
     for i in range(len(classifiers_cv)):
         acc = []
@@ -39,21 +38,17 @@ def cross_validate_clfs(data, classifiers_cv, classifiers_cv_names, meta_clf, fo
             pred = None
             clf = None
             if i == len(classifiers_cv) - 1:
-                if hasattr(classifiers_cv[i](classifiers_cv[0:i-1], meta_clf), 'clf_name'):
-                    clf = classifiers_cv[i](classifiers_cv[0:i-1], meta_clf)
-                else:
-                    clf = classifiers_cv[i]()
+                if hasattr(classifiers_cv[i], 'clf_name'):
+                    classifiers_cv[i].classifiers = classifiers_cv[0:clfs]
+                    classifiers_cv[i].meta_clf = meta_clf
+                clf = classifiers_cv[i]
                 clf.fit(X_train, y_train)
-                pred = clf.predict(X_test, prob=True)  
+                pred = clf.predict(X_test, prob=True)
             else:
-                try:
-                    if hasattr(classifiers_cv[i](classifiers_cv[0:i], meta_clf), 'clf_name'):
-                        clf = classifiers_cv[i](classifiers_cv[0:i], meta_clf)
-                    else:
-                        clf = classifiers_cv[i]()
-                except:
-                    clf = classifiers_cv[i]()
-                    pass
+                if hasattr(classifiers_cv[i], 'clf_name'):
+                    classifiers_cv[i].classifiers = classifiers_cv[0:clfs]
+                    classifiers_cv[i].meta_clf = meta_clf
+                clf = classifiers_cv[i]
                 clf.fit(X_train, y_train)
                 pred = clf.predict(X_test)
             score = accuracy_score(y_test, pred)
@@ -137,21 +132,17 @@ def cross_validate_clfs_noise(noiseless_data, classifiers_cv, classifiers_cv_nam
             pred = None
             clf = None
             if i == len(classifiers_cv) - 1:
-                if hasattr(classifiers_cv[i](classifiers_cv[0:i-1], meta_clf), 'clf_name'):
-                    clf = classifiers_cv[i](classifiers_cv[0:i-1], meta_clf)
-                else:
-                    clf = classifiers_cv[i]()
+                if hasattr(classifiers_cv[i], 'clf_name'):
+                    classifiers_cv[i].classifiers = classifiers_cv[0:i-1]
+                    classifiers_cv[i].meta_clf = meta_clf
+                clf = classifiers_cv[i]
                 clf.fit(X_train, y_train)
                 pred = clf.predict(X_test, prob=True)  
             else:
-                try:
-                    if hasattr(classifiers_cv[i](classifiers_cv[0:i], meta_clf), 'clf_name'):
-                        clf = classifiers_cv[i](classifiers_cv[0:i], meta_clf)
-                    else:
-                        clf = classifiers_cv[i]()
-                except:
-                    clf = classifiers_cv[i]()
-                    pass
+                if hasattr(classifiers_cv[i], 'clf_name'):
+                    classifiers_cv[i].classifiers = classifiers_cv[0:i-1]
+                    classifiers_cv[i].meta_clf = meta_clf
+                clf = classifiers_cv[i]
                 clf.fit(X_train, y_train)
                 pred = clf.predict(X_test)
             score = accuracy_score(y_test, pred)
@@ -184,17 +175,17 @@ def cross_validate_kappa(data, classifiers_cv, classifiers_cv_names, meta_clf, f
             pred = None
             clf = None
             if i == len(classifiers_cv) - 1:
-                if hasattr(classifiers_cv[i](classifiers_cv[0:i-1], meta_clf), 'clf_name'):
+                if hasattr(classifiers_cv[i], 'clf_name'):
                     clf = classifiers_cv[i](classifiers_cv[0:i-1], meta_clf)
                 else:
-                    clf = classifiers_cv[i]()
+                    clf = classifiers_cv[i]
                 clf.fit(X_train, y_train)
                 pred = clf.predict(X_test, prob=True)  
             else:
-                if hasattr(classifiers_cv[i](classifiers_cv[0:i], meta_clf), 'clf_name'):
+                if hasattr(classifiers_cv[i], 'clf_name'):
                     clf = classifiers_cv[i](classifiers_cv[0:i], meta_clf)
                 else:
-                    clf = classifiers_cv[i]()
+                    clf = classifiers_cv[i]
                 clf.fit(X_train, y_train)
                 pred = clf.predict(X_test)
             score = cohen_kappa_score(y_test, pred)
@@ -205,7 +196,7 @@ def cross_validate_kappa(data, classifiers_cv, classifiers_cv_names, meta_clf, f
     return combine
 
 # 3) DIVERSITY
-def q_statistic(clf1_pred, clf2_pred, y_true):
+def q_statistic_and_correlation(clf1_pred, clf2_pred, y_true):
     '''
     Q is a measure of diversity
     create a 2x2 contigency table from the predictions obtained from both classifiers
@@ -249,8 +240,54 @@ def q_statistic(clf1_pred, clf2_pred, y_true):
     contigency_table[1, 1] = incorrect_incorrect
 
     num = (contigency_table[0, 0] * contigency_table[1, 1]) - (contigency_table[1, 0] * contigency_table[0, 1])
-    den = (contigency_table[0, 0] * contigency_table[1, 1]) + (contigency_table[1, 0] * contigency_table[0, 1])
+    q_den = (contigency_table[0, 0] * contigency_table[1, 1]) + (contigency_table[1, 0] * contigency_table[0, 1]) #q denominator
+    
+    ab_cd = (contigency_table[0, 0] + contigency_table[1, 0]) * (contigency_table[0, 1] + contigency_table[1, 1])
+    ac_bd = (contigency_table[0, 0] + contigency_table[0, 1]) * (contigency_table[1, 0] + contigency_table[1, 1])
+    
+    Q = round(num / q_den, 3)
 
-    Q = num / den
+    correlation = round(num / (math.sqrt(ab_cd * ac_bd)), 3)
 
-    return round(Q, 3)
+    return Q, correlation
+
+def classifer_diversity(data, mlp, dt, knn, encode=False):
+    data = np.array(data)
+    y = data[:, -1]
+    X = data[:, 0:data.shape[1]-1]
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
+
+    label_encoder = LabelEncoder()
+    scaler = StandardScaler()
+
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+    
+    if encode:
+        y_train = label_encoder.fit_transform(y_train)
+        y_test = label_encoder.transform(y_test)
+
+    mlp.fit(X_train, y_train)
+    mlp_pred = mlp.predict(X_test)
+    
+    dt.fit(X_train, y_train)
+    dt_pred = dt.predict(X_test)
+
+    knn.fit(X_train, y_train)
+    knn_pred = knn.predict(X_test)
+
+    mlp_dt = q_statistic_and_correlation(mlp_pred, dt_pred, y_test)
+    dt_knn = q_statistic_and_correlation(dt_pred, knn_pred, y_test)
+    mlp_knn = q_statistic_and_correlation(mlp_pred, knn_pred, y_test)
+
+    mlp_dt_Q, mlp_dt_corr = mlp_dt[0], mlp_dt[1]
+    dt_knn_Q, dt_knn_corr = dt_knn[0], dt_knn[1]
+    mlp_knn_Q, mlp_knn_corr = mlp_knn[0], mlp_knn[1]
+
+
+    print("\n\nMLP & DT Q: " + str(mlp_dt_Q) + " \t\t\tMLP & DT corr: " + str(mlp_dt_corr))
+    print("DT & KNN Q: " + str(dt_knn_Q) + " \t\t\tDT & KNN corr: " + str(dt_knn_corr))
+    print("MLP & KNN Q: " + str(mlp_knn_Q) + " \t\t\tMLP & KNN corr: " + str(mlp_knn_corr))
+
+

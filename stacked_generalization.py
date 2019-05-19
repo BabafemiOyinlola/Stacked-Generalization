@@ -2,14 +2,15 @@ import math
 import random
 import numpy as np
 import pandas as pd
+from sklearn import base
 
-class StackedGeneralization():
+class StackedGeneralization(base.BaseEstimator, base.ClassifierMixin):
     '''
     Stacked Generalization ensembles:
     1) Using predictions of each base classifier to train the meta classifier
     2) Using predicted probabilities of labels by base classifiers to train the meta classifer
     '''
-    def __init__(self, classifiers, meta_clf):
+    def __init__(self, classifiers=None, meta_clf=None):
         self.classifiers = classifiers
         self.meta_clf = meta_clf
         self.clf_name = "STG" #this was defined to identify classifier when using cv
@@ -59,7 +60,7 @@ class StackedGeneralization():
     
                 X_test_fold = test_fold.drop(columns={'y_train', 'pred'})
                 
-                clf = classifier().fit(X_train_fold, y_train_fold)
+                clf = classifier.fit(X_train_fold, y_train_fold)
                 pred = clf.predict(X_test_fold)
                 
                 if i == (cv - 1):
@@ -85,7 +86,7 @@ class StackedGeneralization():
         #2) train classifiers on full training set
         full_predictions= []
         for classifier in self.classifiers:
-            clf = classifier().fit(self.X_train, self.y_train) #classifiers trained on full training set
+            clf = classifier.fit(self.X_train, self.y_train) #classifiers trained on full training set
             pred = clf.predict(X_test) #predict labels of the test set
             full_predictions.append(pred)
 
@@ -143,10 +144,11 @@ class StackedGeneralization():
                 X_test_fold = test_fold.drop(columns={'y_train', 'pred'})
 
                 # clf = None
-                if hasattr(classifier(), 'probability'):
-                    clf = classifier(probability=True).fit(X_train_fold, y_train_fold)
+                if hasattr(classifier, 'probability'):
+                    classifier.probability = True
+                    clf = classifier.fit(X_train_fold, y_train_fold)
                 else:
-                    clf = classifier().fit(X_train_fold, y_train_fold)
+                    clf = classifier.fit(X_train_fold, y_train_fold)
                 
                 pred = [np.array(i).tolist() for i in clf.predict_proba(X_test_fold)]
 
@@ -190,10 +192,11 @@ class StackedGeneralization():
         clf = None
         for classifier in self.classifiers:
             # clf = classifier().fit(self.X_train, self.y_train) #classifiers trained newly on full training set
-            if hasattr(classifier(), 'probability'):
-                clf = classifier(probability=True).fit(self.X_train, self.y_train)
+            if hasattr(classifier, 'probability'):
+                classifier.probability = True
+                clf = classifier.fit(self.X_train, self.y_train)
             else:
-                clf = classifier().fit(self.X_train, self.y_train)
+                clf = classifier.fit(self.X_train, self.y_train)
             pred = clf.predict_proba(X_test) #predict labels of the test set
             full_predictions.append(pred)
 
@@ -210,7 +213,7 @@ class StackedGeneralization():
 
         return (stacked_cv_predictions, stacked_test_predictions)
     
-    def predict(self, X_test, cv_=5, prob=False):
+    def predict(self, X_test, cv_=10, prob=False):
         #train the meta classifer with the results of the predictions from the base classifers using a cross validated method
         if prob:
             predictions = self.__base_classifiers_prob(X_test, cv=cv_)
@@ -220,7 +223,7 @@ class StackedGeneralization():
         stacked_cv_predictions = predictions[0]
         stacked_test_predictions = predictions[1]
 
-        clf = self.meta_clf()
+        clf = self.meta_clf
         clf.fit(stacked_cv_predictions, np.array(self.y_train).reshape(self.y_train.shape[0],-1))
         final_pred = clf.predict(stacked_test_predictions)
 
