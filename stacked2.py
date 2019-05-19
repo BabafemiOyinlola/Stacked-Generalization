@@ -2,8 +2,9 @@ import math
 import random
 import numpy as np
 import pandas as pd
+from sklearn import base
 
-class StackedGeneralization():
+class StackedGeneralization(base.BaseEstimator, base.ClassifierMixin):
     '''
     Stacked Generalization ensembles:
     1) Using predictions of each base classifier to train the meta classifier
@@ -212,7 +213,7 @@ class StackedGeneralization():
 
         return (stacked_cv_predictions, stacked_test_predictions)
     
-    def predict(self, X_test, cv_=5, prob=False):
+    def predict(self, X_test, cv_=10, prob=False):
         #train the meta classifer with the results of the predictions from the base classifers using a cross validated method
         if prob:
             predictions = self.__base_classifiers_prob(X_test, cv=cv_)
