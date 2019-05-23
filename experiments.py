@@ -53,6 +53,7 @@ def cross_validate_clfs(data, classifiers_cv, classifiers_cv_names, meta_clf, fo
                 pred = clf.predict(X_test)
             score = accuracy_score(y_test, pred)
             acc.append(score)
+        print(str(i) + "Accuracy: " + str(acc))
         clfs_accuracies.append(np.mean(acc))
 
     combine = zip(classifiers_cv_names, clfs_accuracies)
@@ -150,49 +151,6 @@ def cross_validate_clfs_noise(noiseless_data, classifiers_cv, classifiers_cv_nam
         clfs_accuracies.append(np.mean(acc))
 
     combine = zip(classifiers_cv_names, clfs_accuracies)
-    return combine
-
-def cross_validate_kappa(data, classifiers_cv, classifiers_cv_names, meta_clf, folds=10, encode=False):
-    data = np.array(data)
-    y = data[:, -1]
-    if encode:
-        y = LabelEncoder().fit_transform(y)
-    y = y.reshape(data.shape[0],)
-
-
-    X = data[:, 0:data.shape[1]-1]
-    X = StandardScaler().fit_transform(X)
-
-    kappa_scores = []
-
-    skf = StratifiedKFold(n_splits=folds, shuffle=True)
-    for i in range(len(classifiers_cv)):
-        kappa = []
-        for train_index, test_index in skf.split(X, y):
-            X_train, X_test = X[train_index], X[test_index]
-            y_train, y_test = y[train_index], y[test_index]
-            score = 0
-            pred = None
-            clf = None
-            if i == len(classifiers_cv) - 1:
-                if hasattr(classifiers_cv[i], 'clf_name'):
-                    clf = classifiers_cv[i](classifiers_cv[0:i-1], meta_clf)
-                else:
-                    clf = classifiers_cv[i]
-                clf.fit(X_train, y_train)
-                pred = clf.predict(X_test, prob=True)  
-            else:
-                if hasattr(classifiers_cv[i], 'clf_name'):
-                    clf = classifiers_cv[i](classifiers_cv[0:i], meta_clf)
-                else:
-                    clf = classifiers_cv[i]
-                clf.fit(X_train, y_train)
-                pred = clf.predict(X_test)
-            score = cohen_kappa_score(y_test, pred)
-            kappa.append(score)
-        kappa_scores.append(np.mean(kappa))
-
-    combine = zip(classifiers_cv_names, kappa_scores)
     return combine
 
 # 3) DIVERSITY

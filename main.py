@@ -13,8 +13,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score
 
 from stacked_generalization import StackedGeneralization
-from experiments import cross_validate_clfs, cross_validate_clfs_noise, cross_validate_kappa, \
-                        q_statistic_and_correlation, classifer_diversity
+from experiments import cross_validate_clfs, cross_validate_clfs_noise, classifer_diversity
 
 
 if __name__ == "__main__":
@@ -36,20 +35,20 @@ if __name__ == "__main__":
     # data = pd.read_csv('data/hepatitis/hepatitis.csv', header=None)
     
     #binary 
-    # data = pd.read_csv('data/sonar/sonar.csv', header=None)
-    data = pd.read_csv('data/ionosphere/ionosphere.csv', header=None)
-    # data = pd.read_csv('data/breast_cancer/breast_cancer.csv', header=None)
-    # data = pd.read_csv('data/iris/iris.csv', header=None)
-    # data = pd.read_csv('data/diabeties/diabetes.csv', header=None)
+    # data = pd.read_csv('data/sonar.csv', header=None)
+    # data = pd.read_csv('data/ionosphere.csv', header=None)
+    data = pd.read_csv('data/breast_cancer.csv', header=None)
+    # data = pd.read_csv('data/iris.csv', header=None)
+    # data = pd.read_csv('data/diabetes.csv', header=None)
     
 
     data = data.sample(frac=1).reset_index(drop=True) #shuffle
 
 
-    # cv_results = cross_validate_clfs(data, classifiers_cv, classifiers_cv_names, meta_clf=LogisticRegression(), encode=True)
-    # print("\nCROSS VALIDATION - NOISELESS DATA \n")
-    # for clf, acc in cv_results:
-    #     print(clf + " : " + str(round(acc, 3)) + " \t\t\tError: " + str(round(1 - acc, 3)))
+    cv_results = cross_validate_clfs(data, classifiers_cv, classifiers_cv_names, meta_clf=LogisticRegression(), encode=True)
+    print("\nCROSS VALIDATION - NOISELESS DATA \n")
+    for clf, acc in cv_results:
+        print(clf + " : " + str(round(acc, 3)) + " \t\t\tError: " + str(round(1 - acc, 3)))
     
 
     # print("\nCROSS VALIDATION - NOISY DATA \n")
@@ -60,27 +59,29 @@ if __name__ == "__main__":
     #     for clf, acc in cv_results_noise:
     #         print(clf + " : " + str(round(acc, 3)) + " \t\t\tError: " + str(round(1 - acc, 3)))
 
-    classifer_diversity(data, mlp, dt, knn, encode=True)
+    # classifer_diversity(data, mlp, dt, knn, encode=True)
+
+    # print("\n")
 
     #various combinations of base classifers 
-    cmb1, cmb1_names = [mlp, dt, stk, stk_p], ["MLP", "DT", "STK", "STK_PR"]
-    cmb2, cmb2_names = [dt, knn, stk, stk_p], ["DT", "KNN", "STK", "STK_PR"]
-    cmb3, cmb3_names = [mlp, knn, stk, stk_p], ["MLP", "KNN", "STK", "STK_PR"]
+    # cmb1, cmb1_names = [mlp, dt, stk, stk_p], ["MLP", "DT", "STK", "STK_PR"]
+    # cmb2, cmb2_names = [dt, knn, stk, stk_p], ["DT", "KNN", "STK", "STK_PR"]
+    # cmb3, cmb3_names = [mlp, knn, stk, stk_p], ["MLP", "KNN", "STK", "STK_PR"]
 
 
-    cv_results = cross_validate_clfs(data, cmb1, cmb1_names, meta_clf=LogisticRegression(), encode=True)
-    print("\nCROSS VALIDATION - DIFFERENT CLASSIFIER COMBINATION 1: MLP & DT \n")
-    for clf, acc in cv_results:
-        print(clf + " : " + str(round(acc, 3)) + " \t\t\tError: " + str(round(1 - acc, 3)))
+    # cv_results = cross_validate_clfs(data, cmb1, cmb1_names, meta_clf=LogisticRegression(), encode=True)
+    # print("\nCROSS VALIDATION - DIFFERENT CLASSIFIER COMBINATION 1: MLP & DT \n")
+    # for clf, acc in cv_results:
+    #     print(clf + " : " + str(round(acc, 3)) + " \t\t\tError: " + str(round(1 - acc, 3)))
 
-    cv_results = cross_validate_clfs(data, cmb2, cmb2_names, meta_clf=LogisticRegression(), encode=True)
-    print("\nCROSS VALIDATION - DIFFERENT CLASSIFIER COMBINATION  2: DT & KNN \n")
-    for clf, acc in cv_results:
-        print(clf + " : " + str(round(acc, 3)) + " \t\t\tError: " + str(round(1 - acc, 3)))
+    # cv_results = cross_validate_clfs(data, cmb2, cmb2_names, meta_clf=LogisticRegression(), encode=True)
+    # print("\nCROSS VALIDATION - DIFFERENT CLASSIFIER COMBINATION  2: DT & KNN \n")
+    # for clf, acc in cv_results:
+    #     print(clf + " : " + str(round(acc, 3)) + " \t\t\tError: " + str(round(1 - acc, 3)))
 
-    cv_results = cross_validate_clfs(data, cmb3, cmb3_names, meta_clf=LogisticRegression(), encode=True)
-    print("\nCROSS VALIDATION - DIFFERENT CLASSIFIER COMBINATION 3: MLP & KNN \n")
-    for clf, acc in cv_results:
-        print(clf + " : " + str(round(acc, 3)) + " \t\t\tError: " + str(round(1 - acc, 3)))
+    # cv_results = cross_validate_clfs(data, cmb3, cmb3_names, meta_clf=LogisticRegression(), encode=True)
+    # print("\nCROSS VALIDATION - DIFFERENT CLASSIFIER COMBINATION 3: MLP & KNN \n")
+    # for clf, acc in cv_results:
+    #     print(clf + " : " + str(round(acc, 3)) + " \t\t\tError: " + str(round(1 - acc, 3)))
 
     print("\nDone")
