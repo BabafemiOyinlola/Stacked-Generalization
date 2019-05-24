@@ -1,2 +1,2 @@
-# Stacked_Generalization
+# Stacked Generalization
 Stacked Generalization Ensemble
