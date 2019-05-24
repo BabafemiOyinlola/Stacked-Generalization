@@ -1,0 +1,173 @@
+---
+title: "AI"
+author: '32340424'
+date: "16/05/2019"
+output: pdf_document
+---
+
+```{r}
+library(ggplot2)
+library(reshape2)
+require(gridExtra)
+```
+
+Missclassification rates
+```{r}
+MLP <- c(0.380, 0.263, 0.403, 0.448, 0.311, 0.217)
+DT <- c(0.333, 0.284, 0.277, 0.407, 0.171, 0.109)
+KNN <- c(0.160, 0.149, 0.288, 0.395, 0.128, 0.055)
+STK <- c(0.060, 0.144, 0.285, 0.374, 0.120, 0.048)
+STK_PR <- c(0.053, 0.134, 0.262, 0.365, 0.114, 0.049)
+
+df_perf <- data.frame(MLP, DT, KNN, STK, STK_PR)
+
+df_perf
+```
+
+```{r}
+df_perf$datasets <- c("Iris", "Sonar", "Diabetes", "Hepatitis", "Ionosphere", 
+                      "Breast Cancer")
+
+df_perf_melt <- melt(data=df_perf, variable.name = "ensembles", value.name = 
+                       "error_rates")
+
+error_plot <- ggplot(df_perf_melt, aes(x=datasets, y= error_rates, fill=ensembles),
+                     xlab="Classifiers") + 
+                    geom_bar(stat="identity", width=.5, position = "dodge") + 
+                    ggtitle("Misclassification Rates") + 
+                    coord_flip() + 
+                    theme(plot.title = element_text(hjust = 0.5))
+error_plot
+```
+
+
+
+Accuracy vs Noise
+```{r}
+noise_level <- c(5, 10, 15, 20, 25)
+par(mfrow=c(3,3))
+
+#Sonar
+STK <- c(0.54, 0.6, 0.665, 0.727, 0.712)
+STK_PR <- c(0.84, 0.93, 0.858, 0.893, 0.885)
+plot(noise_level, STK, type='o', col='blue', ylim = c(0.5, 1), xlim = c(5, 26), bty="n",  
+     pch = 19, xaxs = "i", yaxs="i", lty = 1, lwd = 1, main="Sonar", xlab = "", 
+     ylab = "Accuracy")
+lines(noise_level, STK_PR, col='red', type='b', pch = 18, lty = 2, lwd = 1)
+
+#Ionosphere
+STK <- c(0.824, 0.811, 0.777, 0.794, 0.793)
+STK_PR <- c(0.929, 0.863, 0.865, 0.869, 0.846)
+plot(noise_level, STK, type='o', col='blue', ylim = c(0.5, 1), xlim = c(5, 26), bty="n",  
+     pch = 19, xaxs = "i", yaxs="i", lty = 1, lwd = 1, main="Ionosphere", xlab = "", 
+     ylab = "")
+lines(noise_level, STK_PR, col='red', type='b', pch = 18, lty = 2, lwd = 1)
+
+#Breast cancer
+STK <- c(0.871, 0.85, 0.899, 0.896, 0.901)
+STK_PR <- c(0.943, 0.95, 0.969, 0.968, 0.963)
+plot(noise_level, STK, type='o', col='blue', ylim = c(0.5, 1), xlim = c(5, 26), bty="n",  
+     pch = 19, xaxs = "i", yaxs="i", lty = 1, lwd = 1, main="Breast Cancer", xlab = "", 
+     ylab = "")
+lines(noise_level, STK_PR, col='red', type='b', pch = 18, lty = 2, lwd = 1)
+
+#Iris
+STK <- c(0.629, 0.533, 0.727, 0.693, 0.665)
+STK_PR <- c(0.857, 0.947, 0.91, 0.93, 0.98)
+plot(noise_level, STK, type='o', col='blue', ylim = c(0.5, 1), xlim = c(5, 26), bty="n",  
+     pch = 19, xaxs = "i", yaxs="i", lty = 1, lwd = 1, main="Iris", ylab = "Accuracy", 
+     xlab = "Noise level (%)")
+lines(noise_level, STK_PR, col='red', type='b', pch = 18, lty = 2, lwd = 1)
+
+#Diabeties
+STK <- c(0.595, 0.676, 0.704, 0.71, 0.703)
+STK_PR <- c(0.653, 0.687, 0.711, 0.722, 0.703)
+plot(noise_level, STK, type='o', col='blue', ylim = c(0.5, 1), xlim = c(5, 26), bty="n",  
+     pch = 19, xaxs = "i", yaxs="i", lty = 1, lwd = 1, main="Diabeties", ylab = "", 
+     xlab = "Noise level (%)")
+lines(noise_level, STK_PR, col='red', type='b', pch = 18, lty = 2, lwd = 1)
+
+#Hepatitis
+STK <- c(0.714, 0.671, 0.648, 0.664, 0.56)
+STK_PR <- c(0.743, 0.7, 0.705, 0.675, 0.669)
+plot(noise_level, STK, type='o', col='blue', ylim = c(0.5, 1), xlim = c(5, 26), bty="n",  
+     pch = 19, xaxs = "i", yaxs="i", lty = 1, lwd = 1, main="Hepatitis", 
+     xlab = "Noise level (%)")
+lines(noise_level, STK_PR, col='red', type='b', pch = 18, lty = 2, lwd = 1)
+
+
+par(usr=c(0,1,0,1),xpd=NA)
+legend(-1.80,-1.5,c("Ensemble stacked with predictions", 
+                    "Ensemble stacked with class probabilities"), col=c("blue","red"), 
+       title="Ensembles", lty=1:2, cex=0.8)
+
+```
+
+
+Statistical significance test - Wilcoxon Test
+```{r}
+#Sonar cv results
+STK <- c(0.837, 0.881, 0.805, 0.878, 0.829)
+STK_PR <- c(0.953, 0.833, 0.854, 0.732, 0.878)
+
+sonar_cv <- data.frame(STK, STK_PR)
+wilcox.test(sonar_cv$STK, sonar_cv$STK_PR, paired = TRUE, exact = TRUE) 
+#exact because it is a small dataset
+```
+
+
+```{r}
+#Ionosphere cv results
+STK <- c(0.831, 0.914, 0.9, 0.886, 0.914)
+STK_PR <- c(0.873, 0.914, 0.843, 0.914, 0.871)
+
+Ionosphere_cv <- data.frame(STK, STK_PR)
+wilcox.test(Ionosphere_cv$STK, Ionosphere_cv$STK_PR, paired = TRUE, exact = TRUE)
+```
+
+
+```{r}
+#Breast Cancer Wisconson cv results
+STK <- c(0.983, 0.93, 0.973, 0.947, 0.965)
+STK_PR <- c(0.939, 0.957, 0.965, 0.956, 0.956)
+
+breast_cancer_cv <- data.frame(STK, STK_PR)
+wilcox.test(breast_cancer_cv$STK, breast_cancer_cv$STK_PR, paired = TRUE, exact = TRUE)
+```
+
+
+```{r}
+#Iris Wisconson cv results
+STK <- c(0.933, 0.833, 0.667, 0.9, 0.967)
+STK_PR <- c(0.967, 0.967, 0.9, 0.967, 0.867)
+
+iris_cv <- data.frame(STK, STK_PR)
+wilcox.test(iris_cv$STK, iris_cv$STK_PR, paired = TRUE, exact = TRUE)
+```
+
+
+```{r}
+#Diabeties Wisconson cv results
+STK <- c(0.734, 0.734, 0.721, 0.699, 0.732)
+STK_PR <- c(0.688, 0.727, 0.701, 0.758, 0.739)
+
+diabeties_cv <- data.frame(STK, STK_PR)
+wilcox.test(diabeties_cv$STK, diabeties_cv$STK_PR, paired = TRUE, exact = TRUE)
+```
+ 
+ 
+```{r}
+#Hepatitis Wisconson cv results
+STK <- c(0.552, 0.552, 0.621, 0.536, 0.593)
+STK_PR <- c(0.69, 0.621, 0.724, 0.643, 0.63)
+
+hepatitis_cv <- data.frame(STK, STK_PR)
+wilcox.test(hepatitis_cv$STK, hepatitis_cv$STK_PR, paired = TRUE, exact = TRUE)
+```
+
+
+
+
+
+
+
