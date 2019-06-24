@@ -1,2 +1,2 @@
 # Stacked Generalization
-Stacked Generalization Ensemble
+Experiments to compare two variations of Stacked Generalization Ensemble.
